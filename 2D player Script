@@ -1,0 +1,195 @@
+using UnityEngine;
+using System.Collections;
+using UnityEngine.UI;
+
+public class PlayerScript : MonoBehaviour
+{
+	//gives my Player the ability to interact with other game elements using physics
+	private Rigidbody2D myRigidbody;
+	//allow me to acces the Animator Controller of my player
+	private Animator myAnimator;
+	//this is set to public so I can interact with it in the inspector.  It will give the Player variable speed.
+	public float movementSpeed;
+	//can be set to true or false to change the Players facing direction
+	private bool facingRight;
+	[SerializeField]
+	private Transform[] groundPoints; //Serialize Field allows that variables to show up
+	[SerializeField]
+	private float groundRadius; //give some size to the ground points
+	[SerializeField]
+	private LayerMask whatIsGround; //allows us to set other objects as ground
+	private bool isGrounded; //this will allow us to only activate jump when the player is on the ground
+	private bool jump; //this is set true or false to allow the player to actually jump
+	[SerializeField]
+	private float jumpForce; //allows me to set magnitude of jump
+	public bool imAlive;
+	public GameObject reset; //this is the reset button in the canvas
+							 //health slider vars
+	private Slider healthBar;
+	public float health = 10f;
+	private float healthBurn = 2f;
+
+
+
+	// Use this for initialization
+	void Start()
+	{   //initial value to set the Player facing right
+		facingRight = true;
+		//associates the Rigidbody component of the Player with a variable we can use later on
+		myRigidbody = GetComponent<Rigidbody2D>();
+		//assocates the variables with the animator controller attached to the player
+		myAnimator = GetComponent<Animator>();
+		imAlive = true;
+		reset.SetActive(false); //at the beggining of the game the reset button is invisable
+								//health slider variables
+		healthBar = GameObject.Find("health slider").GetComponent<Slider>();
+		healthBar.minValue = 0f;
+		healthBar.maxValue = health;
+		healthBar.value = healthBar.maxValue;
+	}
+
+	void Update()
+	{
+		HandleInput();
+	}
+
+	/* Update is called once per frame.  
+Fixed Update locks in speed and performance regardless of console performance and quality*/
+	void FixedUpdate()
+	{
+		//access the keyboard controls and move left and right
+		float horizontal = Input.GetAxis("Horizontal");
+		//just to see what is being reported by the keyboard on the console
+		//Debug.Log (horizontal);
+		isGrounded = IsGrounded(); //set the value of the variables to the 
+								   //calling the function in the game 
+								   //controls Player on the x and y axis
+
+		//controls player facing direction
+
+
+		if (imAlive)
+		{
+			HandleMovement(horizontal);
+			Flip(horizontal);
+		}
+	}
+	//Function Defenition
+	private void HandleInput()
+	{
+		if (Input.GetKeyDown(KeyCode.Space)) //if the user presses the spacebar
+		{
+			jump = true; //set the jump bool true
+			Debug.Log("Im JUMPING"); //test the code in the console 
+			myAnimator.SetBool("jumping", true); //set the bool jump bool in the animator to true
+		}
+
+	}
+
+	private void HandleMovement(float horizontal)
+	{
+		if (jump && isGrounded)
+		{
+			myRigidbody.AddForce(new Vector2(0, jumpForce)); //apply force to player on the y axis
+			jump = false; //reset jump bool to false
+			isGrounded = false; //reset the isGrounded bool to false
+		}
+		//moves the Player on x axis and y axis
+		myRigidbody.velocity = new Vector2(horizontal * movementSpeed, myRigidbody.velocity.y);
+		myAnimator.SetFloat("speed", Mathf.Abs(horizontal));
+
+	}
+	private void Flip(float horizontal)
+	{
+		//logical test to make sure that we are changing his facing direction
+		if (horizontal > 0 && !facingRight || horizontal < 0 && facingRight)
+		{
+			facingRight = !facingRight; //this sets the value of facingRight to its opposite
+			Vector3 theScale = transform.localScale; //this accesses the local player scale component
+			theScale.x *= -1;  //multiplying the x value of scale by -1 allows us to get either 1 or -1 as the result
+			transform.localScale = theScale; //this reports the new value to the player's scale component
+		}
+	}
+	/* be sure to create 3 child gameobjects to the player object. name them groundpoint_lt, groundpoint_rt, and groundpoint_center
+		align them so that they are at the feet of the character.
+	*/
+
+	private bool IsGrounded()
+	{
+		if (myRigidbody.velocity.y <= 0)
+		{
+			//if player is not moving vertically test each of Player’s groundpoints for contact with the Ground
+			foreach (Transform point in groundPoints)
+			{
+				Collider2D[] colliders = Physics2D.OverlapCircleAll(point.position, groundRadius, whatIsGround);
+				for (int i = 0; i < colliders.Length; i++)
+				{
+					if (colliders[i].gameObject != gameObject)
+					//if any of the groundpoints is in contact(collides) with anything other than the Player, return true
+					{
+						return true;
+					}
+				}
+			}
+		}
+		return false;
+	}
+
+
+	private void OnCollisionEnter2D(Collision2D target)
+	{
+
+		if (target.gameObject.tag == "Ground")
+		{
+
+			myAnimator.SetBool("jumping", false);
+
+		}
+
+		if (target.gameObject.tag == "deadly")
+		{
+
+			myAnimator.SetBool("dead", true);
+			imAlive = false;
+			reset.SetActive(true);//this makes the button visable
+
+		}
+
+
+		if (target.gameObject.tag == "damage")
+		{
+
+			UpdateHealth();
+		}
+	}
+
+	public void ImDead()
+	{
+
+		myAnimator.SetBool("dead", true);
+		imAlive = false;
+		reset.SetActive(true);
+
+	}
+
+	public void UpdateHealth()
+	{
+		if (health > 1)
+		{
+			//if the health bar has life left..
+			health -= healthBurn; //current value of health minus 2f
+			healthBar.value = health;  //update the interface slider
+		}
+		else
+		{
+			ImDead(); //life left, run this function which kills
+		}
+
+	}
+}
+
+
+
+
+
+
